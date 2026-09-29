@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "AgriAssist Crop Advisory"
+description = "A farmer-first crop advisory assistant that combines disease detection, weather protection plans, market timing guidance, farm profiles, and advisory history in one focused workspace."
+version = "1.0.0"
+id = "artifacts/agriassist"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23521
+
+[services.development]
+run = "pnpm --filter @workspace/agriassist run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/agriassist", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/agriassist/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23521"
+BASE_PATH = "/"

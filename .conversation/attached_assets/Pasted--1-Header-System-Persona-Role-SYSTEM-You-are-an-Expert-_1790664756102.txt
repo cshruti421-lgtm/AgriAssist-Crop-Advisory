@@ -1,0 +1,335 @@
+# 1. Header & System Persona Role
+
+**SYSTEM:** You are an Expert AI Coding Agent (e.g., Cursor, Claude Code, Replit Agent, or Bolt). Act as a Principal Full-Stack Engineer, AI Systems Architect, and Lead UX Developer.
+**CAPABILITIES:** You possess deep expertise in React.js, Node.js, Express.js, PostgreSQL (Replit Postgres), and the `@google/genai` SDK. You write clean, modular, production-ready code with exhaustive error handling, strict typing, and high-security standards.
+
+# 2. Core Mission Directive
+
+Your mission is to build a complete, production-grade, end-to-end web application in a single continuous workflow. You must not use placeholders, mock data, or leave functions as `TODO`. Every feature, route, database query, and AI integration must be fully implemented, tested, and styled. You must strictly adhere to the architecture and requirements defined in this master prompt.
+
+# 3. Product Goal
+
+Build an **AI-Powered Agriculture Crop Advisory Assistant**. Farmers struggle with crop diseases, unpredictable weather, and fluctuating market prices, leading to crop losses and reduced income. This application solves this by providing a unified platform where farmers can detect crop diseases via computer vision (image upload), receive actionable weather-based farming alerts, and get data-driven suggestions on the best time and market to sell their crops.
+
+# 4. Mandatory Features
+
+* **Computer Vision Disease Detection:** Users can upload photos of affected plant leaves/crops. The AI will identify the disease, assess severity, and provide a step-by-step treatment plan.
+* **Weather-Based Farming Alerts:** Users input their crop type, growth stage, and current/forecasted weather anomalies (e.g., "3 days of heavy rain"). The AI provides immediate protective actions and long-term agronomic advice.
+* **Market Price & Timing Oracle:** Users input their crop, yield quantity, and local market trends. The AI evaluates holding vs. selling strategies and suggests target markets to maximize income.
+* **Historical Advisory Dashboard:** A centralized dashboard that stores and categorizes all past AI advisories (Disease, Weather, Market) for ongoing reference.
+* **Secure Authentication & Data Isolation:** Multi-tenant architecture ensuring each farmer's farm data and advisory history is strictly isolated.
+
+# 5. Technology Requirements
+
+* **Frontend:** React.js (Functional components, Hooks), Vite (Bundler), Tailwind CSS (Styling), React Router DOM, Axios/Fetch.
+* **Backend:** Node.js, Express.js.
+* **Database:** Replit Postgres (PostgreSQL) using `pg` or `slonik` for queries.
+* **AI Integration:** `@google/genai` SDK for all generative, analytical, and vision-based AI tasks.
+* **Validation:** Zod (for both API payload validation and enforcing AI structured JSON outputs).
+* **File Uploads:** `multer` (for handling in-memory or local temp storage of crop images before passing to the Gemini API).
+
+# 6. Application Pages (Routes)
+
+* `GET /` - Landing Page (Hero section, value proposition, login/register call-to-action).
+* `GET /login` & `GET /register` - Authentication forms.
+* `GET /dashboard` - Main hub displaying summary of recent advisories, farm profile, and quick links to core tools.
+* `GET /disease-detection` - Image upload interface with preview and results display panel.
+* `GET /weather-alerts` - Form for logging weather conditions and viewing agronomic action plans.
+* `GET /market-insights` - Interface for market queries, displaying hold/sell recommendations and pricing strategies.
+* `GET /history` - Paginated list of all past advisories with filtering by type.
+
+# 7. User Flow
+
+1. **Onboarding:** User registers and creates a basic farm profile (location, primary crops).
+2. **Authentication:** User logs in securely and is redirected to the Dashboard.
+3. **Action Selection:** User selects one of the three primary modules (Disease, Weather, Market).
+4. **Data Input:** User fills out a Zod-validated form (with image upload for Disease).
+5. **AI Processing:** Frontend sends data to Express backend. Backend constructs the specialized prompt, securely calls Gemini API via `@google/genai`, and enforces a JSON schema response.
+6. **Result Delivery:** Backend stores the prompt and AI response in PostgreSQL, then returns the JSON to the frontend.
+7. **Review:** Frontend renders the structured AI advisory in an easy-to-read, beautifully styled Tailwind card.
+
+# 8. Target Domains & Categorization
+
+* **Phytopathology (Crop Disease):** Focuses on visual symptom identification, pathogen life cycles, and safe pesticide/organic treatments.
+* **Agronomy & Climatology:** Focuses on soil health preservation during extreme weather, irrigation adjustments, and crop-stage-specific vulnerabilities.
+* **Agricultural Economics:** Focuses on supply/demand dynamics, storage costs, spoilage risks, and regional market arbitrage.
+
+# 9. Form & Advisory Configuration
+
+**Disease Detection:**
+
+* *Inputs:* `cropType` (string), `symptomsOnset` (number of days), `image` (file).
+* *Outputs:* Disease Name, Confidence Score, Immediate Treatment, Preventive Measures.
+
+**Weather Alerts:**
+
+* *Inputs:* `cropType` (string), `growthStage` (seedling, vegetative, flowering, maturity), `weatherEvent` (string - e.g., "frost warning", "drought").
+* *Outputs:* Risk Level, Immediate Mitigations, Long-Term Soil/Crop Care.
+
+**Market Insights:**
+
+* *Inputs:* `cropType` (string), `estimatedYieldKg` (number), `currentLocalPricePerKg` (number), `storageAvailability` (boolean).
+* *Outputs:* Action (Hold/Sell), Suggested Selling Window, Alternative Markets, Risk Assessment.
+
+# 10. Database Schema (Production SQL for PostgreSQL)
+
+```sql
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    location VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE farms (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    primary_crops TEXT[] NOT NULL,
+    farm_size_hectares DECIMAL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TYPE advisory_category AS ENUM ('disease', 'weather', 'market');
+
+CREATE TABLE advisories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    category advisory_category NOT NULL,
+    crop_type VARCHAR(255) NOT NULL,
+    user_inputs JSONB NOT NULL,
+    ai_response JSONB NOT NULL,
+    image_url TEXT, -- Optional, for disease tracking
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_advisories_user_id ON advisories(user_id);
+CREATE INDEX idx_advisories_category ON advisories(category);
+
+```
+
+# 11. Row Level Security (RLS) / Data Isolation Rules
+
+Strict data isolation must be enforced at the database level. Implement the following PostgreSQL RLS policies:
+
+```sql
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE farms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE advisories ENABLE ROW LEVEL SECURITY;
+
+-- Users can only read and update their own profile
+CREATE POLICY "Users access own profile" ON users FOR ALL USING (id = current_setting('app.current_user_id')::UUID);
+
+-- Users can only access their own farm data
+CREATE POLICY "Users access own farm" ON farms FOR ALL USING (user_id = current_setting('app.current_user_id')::UUID);
+
+-- Users can only access their own advisories
+CREATE POLICY "Users access own advisories" ON advisories FOR ALL USING (user_id = current_setting('app.current_user_id')::UUID);
+
+```
+
+*(Note for Node.js implementation: Set the session variable `app.current_user_id` inside your database transaction middleware before executing queries, or handle standard foreign-key isolation securely in the backend controllers).*
+
+# 12. Backend API Routes
+
+* **Auth:**
+* `POST /api/auth/register` (Hashes password, creates user).
+* `POST /api/auth/login` (Issues HTTP-only JWT).
+* `POST /api/auth/logout` (Clears cookie).
+
+
+* **Farm Profile:**
+* `GET /api/farm` (Fetch farm details).
+* `POST /api/farm` (Create/Update farm details).
+
+
+* **AI Advisory generation:**
+* `POST /api/advisory/disease` (Uses `multer` for `multipart/form-data`. Processes image via Gemini).
+* `POST /api/advisory/weather` (JSON payload).
+* `POST /api/advisory/market` (JSON payload).
+
+
+* **History:**
+* `GET /api/advisories` (Supports `?category=disease|weather|market`).
+
+
+
+# 13. Gemini SDK Setup & Server-Side Security
+
+You MUST use the official `@google/genai` SDK.
+
+* Do NOT expose `GEMINI_API_KEY` to the frontend. All AI logic must reside in the Express.js backend.
+* Initialize the client: `const { GoogleGenAI } = require('@google/genai'); const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });`
+* Use `gemini-2.5-flash` for all tasks (it supports multimodal image inputs natively and text-based structured generation).
+
+# 14. AI System Prompt
+
+Every call to Gemini must include the following `systemInstruction`:
+
+> "You are AgriAssist, an elite expert system combining the knowledge of a Master Agronomist, a Plant Pathologist, and an Agricultural Economist. Your sole purpose is to provide highly accurate, actionable, and strictly formatted advice to farmers to prevent crop loss and maximize financial yield. You never hallucinate treatments. You prioritize low-cost, accessible solutions for farmers. Your output must strictly adhere to the requested JSON schema."
+
+# 15. Detailed AI Prompts (with required JSON Schemas)
+
+**A. Disease Detection (Multimodal):**
+
+* *Prompt:* "Analyze the provided image of a {cropType} crop. The farmer reports symptoms started {symptomsOnset} days ago. Identify the most likely disease/pest, assess the severity, and provide a step-by-step treatment plan."
+* *Response Schema requirement (`responseSchema` in Gemini config):*
+```json
+{
+  "type": "object",
+  "properties": {
+    "diseaseName": { "type": "string" },
+    "confidenceScore": { "type": "number", "description": "1 to 100" },
+    "severity": { "type": "string", "enum": ["Low", "Medium", "High", "Critical"] },
+    "treatmentPlan": { "type": "array", "items": { "type": "string" } },
+    "preventiveMeasures": { "type": "array", "items": { "type": "string" } }
+  },
+  "required": ["diseaseName", "confidenceScore", "severity", "treatmentPlan", "preventiveMeasures"]
+}
+
+```
+
+
+
+**B. Weather Alert:**
+
+* *Prompt:* "The farmer is growing {cropType} currently in the {growthStage} stage. They are facing the following weather event: {weatherEvent}. Provide an immediate action plan to protect the yield."
+* *Response Schema requirement:*
+```json
+{
+  "type": "object",
+  "properties": {
+    "riskLevel": { "type": "string", "enum": ["Low", "Moderate", "High", "Severe"] },
+    "vulnerabilities": { "type": "array", "items": { "type": "string" } },
+    "immediateActions": { "type": "array", "items": { "type": "string" } },
+    "recoveryPostEvent": { "type": "array", "items": { "type": "string" } }
+  },
+  "required": ["riskLevel", "vulnerabilities", "immediateActions", "recoveryPostEvent"]
+}
+
+```
+
+
+
+**C. Market Insights:**
+
+* *Prompt:* "A farmer has {estimatedYieldKg} kg of {cropType}. Current local price is {currentLocalPricePerKg}. They have storage availability: {storageAvailability}. Based on standard agricultural market cycles, advise on the best selling strategy."
+* *Response Schema requirement:*
+```json
+{
+  "type": "object",
+  "properties": {
+    "recommendation": { "type": "string", "enum": ["Sell Immediately", "Hold and Store", "Partial Sell"] },
+    "expectedPriceTrend": { "type": "string" },
+    "targetMarkets": { "type": "array", "items": { "type": "string" } },
+    "financialRiskWarning": { "type": "string" }
+  },
+  "required": ["recommendation", "expectedPriceTrend", "targetMarkets", "financialRiskWarning"]
+}
+
+```
+
+
+
+# 16. Zod Validation Requirements
+
+Define strict Zod schemas on the Express backend for validating incoming requests:
+
+* `RegisterSchema`: Email (email format), Password (min 8 chars), FullName (min 2 chars).
+* `WeatherInputSchema`: cropType (min 2), growthStage (enum), weatherEvent (min 5).
+* `MarketInputSchema`: cropType, estimatedYieldKg (positive number), currentLocalPricePerKg (positive number), storageAvailability (boolean).
+Apply these via an Express middleware function `validateRequest(schema)`.
+
+# 17. Frontend Components List
+
+Create the following modular React components inside `client/src/components/`:
+
+* `Layout.jsx` (Wrapper with Navigation)
+* `Navbar.jsx` (Branding, User Avatar, Logout)
+* `Sidebar.jsx` (Navigation links for Dashboard, Tools, History)
+* `ImageUploader.jsx` (Drag-and-drop zone, file preview)
+* `DiseaseResultCard.jsx` (Renders the JSON disease output with severity badges)
+* `WeatherActionCard.jsx` (Displays risk level and action checklists)
+* `MarketStrategyChart.jsx` (Visual display of hold/sell logic)
+* `HistoryTable.jsx` (Paginated list of past queries)
+* `AuthForm.jsx` (Reusable login/registration UI)
+
+# 18. Security Requirements
+
+* **Helmet & CORS:** Implement `helmet()` for secure HTTP headers. Configure CORS to strictly allow requests only from the frontend origin.
+* **Authentication:** Use `jsonwebtoken` (JWT). Tokens must be sent to the client as `HttpOnly`, `Secure`, `SameSite=Strict` cookies to prevent XSS attacks. Do NOT store JWTs in LocalStorage.
+* **File Upload Security:** Configure `multer` with a file size limit (e.g., 5MB) and strict `mimetype` filtering (only `image/jpeg`, `image/png`, `image/webp`).
+* **Rate Limiting:** Implement `express-rate-limit` on the `/api/advisory/*` endpoints to prevent API abuse and excessive Gemini billing.
+
+# 19. Environment Variables Template
+
+Provide a `.env.example` file reflecting the following requirements:
+
+```
+PORT=5000
+NODE_ENV=development
+DATABASE_URL=postgres://user:password@host:port/dbname
+GEMINI_API_KEY=your_google_genai_api_key
+JWT_SECRET=your_super_secret_jwt_key
+JWT_EXPIRES_IN=7d
+CLIENT_URL=http://localhost:5173
+
+```
+
+# 20. Suggested Folder Structure
+
+```
+/
+├── client/
+│   ├── public/
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── DiseaseDetection.jsx
+│   │   │   ├── WeatherAlerts.jsx
+│   │   │   ├── MarketInsights.jsx
+│   │   │   └── History.jsx
+│   │   ├── context/ (AuthContext)
+│   │   ├── services/ (API calls via Axios)
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── package.json
+│   └── tailwind.config.js
+├── server/
+│   ├── config/ (db.js)
+│   ├── controllers/ (auth.js, advisory.js)
+│   ├── middlewares/ (authMiddleware.js, validate.js, upload.js)
+│   ├── routes/ (authRoutes.js, advisoryRoutes.js)
+│   ├── utils/ (geminiClient.js)
+│   ├── index.js
+│   └── package.json
+└── README.md
+
+```
+
+# 21. Implementation Phases
+
+* **Phase 1: DB & Scaffold:** Initialize Replit Postgres database, write schema/RLS migrations, set up Node/Express server and Vite/React client.
+* **Phase 2: Authentication:** Build secure JWT HTTP-Only auth flow, user registration, and React AuthContext.
+* **Phase 3: Core AI Backend:** Implement Gemini API services, Zod validation, and the Express routes for Disease, Weather, and Market. Include `multer` for image handling.
+* **Phase 4: Frontend Tools:** Build the complex React pages (`DiseaseDetection.jsx`, `WeatherAlerts.jsx`, `MarketInsights.jsx`) and connect them to the backend.
+* **Phase 5: Dashboard & History:** Implement the user dashboard and fetch/display historical data from PostgreSQL. Polish UI with Tailwind CSS.
+
+# 22. Acceptance Criteria
+
+* Application compiles and runs flawlessly with `npm run dev` (concurrently running frontend and backend).
+* A user can securely register, log in, and persist their session.
+* A user can upload a crop image, and the backend correctly parses it, queries Gemini 2.5 Flash, and returns valid JSON matching the `diseaseName` schema.
+* A user can input weather or market data and receive formatted, structured agronomic advice.
+* All advisories are successfully saved to PostgreSQL and retrieved accurately on the History page.
+* No sensitive API keys are exposed to the frontend.
+* The UI is responsive, clean, and appropriately styled using Tailwind.
+
+# 23. Final Instruction to Coding Agent
+
+Acknowledge this prompt by outputting a brief, step-by-step execution plan based on the Implementation Phases. Once acknowledged, do not wait for further permission: immediately begin Phase 1 by creating the necessary folder structure, initializing the database schema, and setting up the Express server. Write actual, production-ready code for every file.
