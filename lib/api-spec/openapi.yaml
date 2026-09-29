@@ -10,6 +10,16 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authenticated user profile operations
+  - name: farm
+    description: Farm profile operations
+  - name: dashboard
+    description: Dashboard summary operations
+  - name: advisories
+    description: AI-powered crop advisory operations
+  - name: storage
+    description: Object storage upload and serving operations
 paths:
   /healthz:
     get:
@@ -24,6 +34,263 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the authenticated user profile
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /farm:
+    get:
+      operationId: getFarm
+      tags: [farm]
+      summary: Get the authenticated user's farm profile
+      responses:
+        "200":
+          description: Farm profile or null when it has not been created
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/FarmProfile"
+                  - type: "null"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    put:
+      operationId: upsertFarm
+      tags: [farm]
+      summary: Create or update the authenticated user's farm profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FarmProfileInput"
+      responses:
+        "200":
+          description: Saved farm profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FarmProfile"
+        "400":
+          description: Invalid farm profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard totals and recent advisories
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /advisories:
+    get:
+      operationId: listAdvisories
+      tags: [advisories]
+      summary: List the authenticated user's advisory history
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [disease, weather, market]
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        "200":
+          description: Paginated advisory history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdvisoryListResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /advisory/disease:
+    post:
+      operationId: createDiseaseAdvisory
+      tags: [advisories]
+      summary: Analyze a crop image for disease or pest symptoms
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/DiseaseAdvisoryInput"
+      responses:
+        "201":
+          description: Disease advisory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Advisory"
+        "400":
+          description: Invalid request or unsupported image
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Too many advisory requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /advisory/weather:
+    post:
+      operationId: createWeatherAdvisory
+      tags: [advisories]
+      summary: Generate a weather protection plan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WeatherAdvisoryInput"
+      responses:
+        "201":
+          description: Weather advisory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Advisory"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Too many advisory requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /advisory/market:
+    post:
+      operationId: createMarketAdvisory
+      tags: [advisories]
+      summary: Generate a market timing and selling strategy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketAdvisoryInput"
+      responses:
+        "201":
+          description: Market advisory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Advisory"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Too many advisory requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+        "400":
+          description: Invalid upload metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +300,192 @@ components:
           type: string
       required:
         - status
+    ErrorEnvelope:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    CurrentUser:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        location:
+          type: ["string", "null"]
+      required: [id, email, fullName, location]
+    FarmProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        location:
+          type: string
+        primaryCrops:
+          type: array
+          items:
+            type: string
+        farmSizeHectares:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, location, primaryCrops, farmSizeHectares, createdAt]
+    FarmProfileInput:
+      type: object
+      properties:
+        location:
+          type: string
+          minLength: 2
+        primaryCrops:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 2
+        farmSizeHectares:
+          type: ["number", "null"]
+          minimum: 0
+      required: [location, primaryCrops]
+    AdvisoryCategory:
+      type: string
+      enum: [disease, weather, market]
+    Advisory:
+      type: object
+      properties:
+        id:
+          type: string
+        category:
+          $ref: "#/components/schemas/AdvisoryCategory"
+        cropType:
+          type: string
+        userInputs:
+          type: object
+          additionalProperties: true
+        aiResponse:
+          type: object
+          additionalProperties: true
+        imageUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, category, cropType, userInputs, aiResponse, imageUrl, createdAt]
+    AdvisoryListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Advisory"
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalPages:
+          type: integer
+      required: [items, total, page, pageSize, totalPages]
+    CategoryCounts:
+      type: object
+      properties:
+        disease:
+          type: integer
+        weather:
+          type: integer
+        market:
+          type: integer
+      required: [disease, weather, market]
+    DashboardSummary:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/CurrentUser"
+        farm:
+          oneOf:
+            - $ref: "#/components/schemas/FarmProfile"
+            - type: "null"
+        totalAdvisories:
+          type: integer
+        categoryCounts:
+          $ref: "#/components/schemas/CategoryCounts"
+        recentAdvisories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Advisory"
+      required: [user, farm, totalAdvisories, categoryCounts, recentAdvisories]
+    DiseaseAdvisoryInput:
+      type: object
+      properties:
+        cropType:
+          type: string
+          minLength: 2
+        symptomsOnset:
+          type: integer
+          minimum: 0
+        image:
+          type: string
+          format: binary
+        imagePath:
+          type: string
+          description: Optional private object storage path for the uploaded image.
+      required: [cropType, symptomsOnset, image]
+    WeatherAdvisoryInput:
+      type: object
+      properties:
+        cropType:
+          type: string
+          minLength: 2
+        growthStage:
+          type: string
+          enum: [seedling, vegetative, flowering, maturity]
+        weatherEvent:
+          type: string
+          minLength: 5
+      required: [cropType, growthStage, weatherEvent]
+    MarketAdvisoryInput:
+      type: object
+      properties:
+        cropType:
+          type: string
+          minLength: 2
+        estimatedYieldKg:
+          type: number
+          exclusiveMinimum: 0
+        currentLocalPricePerKg:
+          type: number
+          exclusiveMinimum: 0
+        storageAvailability:
+          type: boolean
+      required: [cropType, estimatedYieldKg, currentLocalPricePerKg, storageAvailability]
+    UploadUrlRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+        contentType:
+          type: string
+          minLength: 1
+      required: [name, size, contentType]
+    UploadUrlResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        metadata:
+          $ref: "#/components/schemas/UploadUrlRequest"
+      required: [uploadURL, objectPath, metadata]
 
